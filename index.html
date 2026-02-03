@@ -7,30 +7,66 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        /* ปรับสีพื้นหลังหลักและ Scrollbar */
-        body { font-family: 'Sarabun', sans-serif; background-color: #0f172a; color: #e2e8f0; } /* Slate-900 */
-        .english-text { font-family: 'Merriweather', serif; line-height: 1.8; font-size: 1.05rem; }
-        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* ปรับสี Highlight และกล่องเฉลยให้สวยขึ้นใน Dark Mode */
-        .para-tag { font-family: 'Sarabun', sans-serif; font-weight: bold; color: #818cf8; margin-right: 8px; user-select: none; } /* Indigo-400 */
-        .explanation-box { 
-            background-color: #064e3b; /* Emerald-900 */
-            border-left: 4px solid #34d399; /* Emerald-400 */
-            padding: 1.25rem; 
-            margin-top: 1.5rem; 
-            font-size: 0.95rem; 
-            color: #d1fae5; /* Emerald-100 */
-            border-radius: 0 0.5rem 0.5rem 0;
-        }
-        
-        /* Scrollbar สวยๆ */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-    </style>
+    /* ... (Style เดิมของ Body, Font ฯลฯ เก็บไว้เหมือนเดิม) ... */
+    body { font-family: 'Sarabun', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+    .english-text { font-family: 'Merriweather', serif; line-height: 1.8; font-size: 1.05rem; }
+    .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    /* --- Custom Radio Button (จุดชัดๆ) --- */
+    .custom-radio {
+        -webkit-appearance: none;
+        appearance: none;
+        background-color: transparent;
+        margin: 0;
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 2px solid #64748b;
+        border-radius: 50%;
+        display: grid;
+        place-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+    }
+
+    .custom-radio::before {
+        content: "";
+        width: 0.65rem;
+        height: 0.65rem;
+        border-radius: 50%;
+        transform: scale(0);
+        transition: 0.15s transform ease-in-out;
+        background-color: #6366f1; /* สีม่วงปกติ */
+    }
+
+    .custom-radio:checked { border-color: #6366f1; }
+    .custom-radio:checked::before { transform: scale(1); }
+
+    /* สถานะ: ข้อที่ถูก (สีเขียวเสมอ) */
+    .custom-radio.status-correct {
+        border-color: #10b981 !important; /* Emerald-500 */
+    }
+    .custom-radio.status-correct::before {
+        background-color: #10b981 !important;
+        transform: scale(1); /* บังคับโชว์จุดเขียวในข้อที่ถูกเสมอ */
+    }
+
+    /* สถานะ: ข้อที่ตอบผิด (สีแดง) */
+    .custom-radio.status-wrong:checked {
+        border-color: #f43f5e !important; /* Rose-500 */
+    }
+    .custom-radio.status-wrong:checked::before {
+        background-color: #f43f5e !important;
+    }
+    
+    .custom-radio:disabled { cursor: default; }
+</style>
 </head>
 <body class="text-slate-200 min-h-screen flex flex-col bg-slate-900 selection:bg-indigo-500 selection:text-white">
 
@@ -1871,541 +1907,337 @@
         ];
 
 // ==========================================
-        //  Final Logic: Quiz & Translate Conflict Fix
-        // ==========================================
+    //  APP LOGIC (Study Mode + Reset System)
+    // ==========================================
 
-        let currentTopic = null;
-        let globalAnswers = {}; 
-        let quizScrollPos = 0;
-        let passageScrollPos = 0;
-        
-        const app = document.getElementById('app');
-        const homeBtn = document.getElementById('homeBtn');
+    let currentTopic = null;
+    let globalAnswers = {}; 
+    let globalChecked = {}; 
+    let quizScrollPos = 0;
+    let passageScrollPos = 0;
+    
+    const app = document.getElementById('app');
+    const homeBtn = document.getElementById('homeBtn');
 
-        // --- 1. ระบบแปลภาษา (Tap System + Fix Label Conflict) ---
-        document.addEventListener('DOMContentLoaded', () => {
-            createBubbleUI();
-            
-            document.addEventListener('click', (e) => {
-                // ถ้ากดที่คำศัพท์ (interactive-word) ไม่ต้องทำอะไร (ปล่อยให้ handleWordClick จัดการ)
-                if (e.target.classList.contains('interactive-word')) return;
-                
-                // ถ้ากดในกล่องแปล ไม่ต้องซ่อน
-                if (e.target.closest('#translate-bubble')) return;
-                
-                hideBubble();
-            });
-
-            window.addEventListener('scroll', hideBubble);
-            window.addEventListener('resize', hideBubble);
-        });
-
-        function makeTextInteractive(text) {
-            return text.replace(/\b([a-zA-Z'\-]{2,})\b/g, (match) => {
-                // เพิ่ม onmousedown เพื่อกัน event ชนกับ label ในบาง browser
-                return `<span class="interactive-word text-slate-300 hover:text-white hover:bg-indigo-500/30 rounded cursor-pointer transition-colors duration-75 border-b border-transparent hover:border-indigo-400 relative z-10" onclick="handleWordClick(event, '${match}')">${match}</span>`;
-            });
-        }
-
-        function handleWordClick(event, word) {
-            // --- หัวใจสำคัญของการแก้บั๊กนี้ ---
-            event.stopPropagation(); // 1. ห้าม Event ทะลุไปหา Parent (Label)
-            event.preventDefault();  // 2. ห้าม Default Action (ห้ามติ๊ก Radio Button)
-            // -------------------------------
-            
-            translateAndShow(word, event.target);
-        }
-
-        function createBubbleUI() {
-            if (!document.getElementById('translate-bubble')) {
-                const bubble = document.createElement('div');
-                bubble.id = 'translate-bubble';
-                bubble.className = 'absolute z-[100] hidden transition-all duration-150 ease-out transform scale-95 opacity-0 shadow-2xl origin-bottom';
-                bubble.innerHTML = `
-                    <div class="relative bg-slate-800 text-white rounded-xl border border-slate-600 ring-1 ring-black/50 max-w-[260px] md:max-w-xs overflow-hidden">
-                        <div class="absolute top-2 right-2 z-10">
-                            <button onclick="hideBubble()" class="text-slate-500 hover:text-white bg-slate-900/50 rounded-full p-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-                        </div>
-                        <div id="bubble-content" class="p-0"></div>
-                        <div id="bubble-arrow" class="absolute w-3 h-3 bg-slate-800 border-slate-600 rotate-45"></div>
-                    </div>
-                `;
-                document.body.appendChild(bubble);
-            }
-        }
-
-        async function translateAndShow(text, targetElement) {
-            const content = document.getElementById('bubble-content');
-            positionBubbleAtElement(targetElement);
-
-            content.innerHTML = `
-                <div class="flex flex-col items-center justify-center gap-2 text-slate-300 py-6 px-8 min-w-[200px]">
-                    <svg class="animate-spin h-6 w-6 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    <span class="text-xs font-medium">กำลังแปล...</span>
-                </div>
-            `;
-
-            try {
-                const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=th&dt=t&q=${encodeURIComponent(text)}`;
-                const response = await fetch(url);
-                const data = await response.json();
-                const translatedText = data[0].map(item => item[0]).join('');
-
-                content.innerHTML = `
-                    <div class="text-center">
-                        <div class="bg-indigo-600 px-4 py-2 border-b border-indigo-500/50">
-                            <p class="text-xs text-indigo-100 uppercase tracking-wide font-bold">ความหมาย</p>
-                        </div>
-                        <div class="p-4">
-                            <p class="text-xl font-bold text-white leading-snug break-words mb-2">${translatedText}</p>
-                            <p class="text-xs text-slate-400 italic mb-4">"${text}"</p>
-                            
-                            <a href="https://dict.longdo.com/search/${encodeURIComponent(text)}" target="_blank" class="inline-flex items-center justify-center w-full px-3 py-2 text-xs font-medium text-indigo-200 bg-indigo-900/40 rounded-lg hover:bg-indigo-900/60 hover:text-white border border-indigo-500/30 transition-colors">
-                                ดูเพิ่มเติมใน Longdo <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                            </a>
-                        </div>
-                    </div>
-                `;
-                positionBubbleAtElement(targetElement);
-
-            } catch (error) {
-                content.innerHTML = `
-                    <div class="p-4 text-center">
-                        <p class="text-red-400 text-sm mb-2">แปลไม่ได้</p>
-                        <a href="https://translate.google.com/?sl=en&tl=th&text=${encodeURIComponent(text)}&op=translate" target="_blank" class="text-xs underline text-slate-400">เปิด Google Translate</a>
-                    </div>`;
-                positionBubbleAtElement(targetElement);
-            }
-        }
-
-        function positionBubbleAtElement(element) {
-            const bubble = document.getElementById('translate-bubble');
-            const arrow = document.getElementById('bubble-arrow');
-            const rect = element.getBoundingClientRect();
-
-            bubble.classList.remove('hidden');
-            requestAnimationFrame(() => {
-                bubble.classList.remove('opacity-0', 'scale-95');
-                bubble.classList.add('opacity-100', 'scale-100');
-            });
-
-            const scrollY = window.scrollY;
-            const bubbleH = bubble.offsetHeight;
-            const bubbleW = bubble.offsetWidth;
-            const screenW = window.innerWidth;
-
-            let left = rect.left + (rect.width / 2) - (bubbleW / 2);
-            if (left < 10) left = 10;
-            if (left + bubbleW > screenW - 10) left = screenW - bubbleW - 10;
-
-            let top = rect.top + scrollY - bubbleH - 12;
-            let arrowClass = "border-r border-b -bottom-[5px] bg-slate-800 border-slate-600";
-
-            if (rect.top - bubbleH - 20 < 0) {
-                top = rect.bottom + scrollY + 12;
-                arrowClass = "border-l border-t -top-[5px] bg-indigo-600 border-indigo-500"; 
-            }
-
-            bubble.style.left = `${left}px`;
-            bubble.style.top = `${top}px`;
-
-            const centerOfWord = rect.left + (rect.width / 2);
-            let arrowLeft = centerOfWord - left - 6;
-            arrowLeft = Math.max(10, Math.min(arrowLeft, bubbleW - 22));
-            
-            arrow.className = `absolute w-3 h-3 rotate-45 ${arrowClass}`;
-            arrow.style.left = `${arrowLeft}px`;
-        }
-
-        function hideBubble() {
-            const bubble = document.getElementById('translate-bubble');
-            if (bubble && !bubble.classList.contains('hidden')) {
-                bubble.classList.add('opacity-0', 'scale-95');
-                setTimeout(() => {
-                    bubble.classList.add('hidden');
-                }, 150);
-            }
-        }
-
-        // --- 2. Animation Header ---
-        window.addEventListener('scroll', () => {
-            const header = document.getElementById('sticky-header');
-            if (header) {
-                if (window.scrollY > 10) {
-                    header.classList.remove('py-4', 'scale-100', 'bg-indigo-900/95', 'border-l-4', 'rounded-l-md', 'rounded-r-xl');
-                    header.classList.add('py-3', 'scale-[0.98]', 'bg-indigo-900/90', 'shadow-2xl', 'border-l-2', 'rounded-xl'); 
-                } else {
-                    header.classList.add('py-4', 'scale-100', 'bg-indigo-900/95', 'border-l-4', 'rounded-l-md', 'rounded-r-xl');
-                    header.classList.remove('py-3', 'scale-[0.98]', 'bg-indigo-900/90', 'shadow-2xl', 'border-l-2', 'rounded-xl');
-                }
-            }
-        });
-
-        // --- 3. Render Functions ---
-        function renderHome() {
-            currentTopic = null;
-            globalAnswers = {}; 
-            quizScrollPos = 0;
-            passageScrollPos = 0;
-            homeBtn.classList.add('hidden');
-            window.scrollTo(0,0);
-
-            let html = `
-                <div class="text-center mb-8 md:mb-12 fade-in mt-4 px-4">
-                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">คลังข้อสอบ GED RLA</h2>
-                    <p class="text-slate-400 max-w-lg mx-auto text-sm md:text-base">เลือกหัวข้อบทความเพื่อเริ่มฝึกฝน พัฒนาทักษะการอ่านวิเคราะห์ด้วย Dark Mode ที่สบายตา</p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 fade-in pb-10">
-            `;
-
-            topics.forEach(topic => {
-                html += `
-                    <div onclick="renderPassage(${topic.id})" class="bg-slate-800 rounded-xl border border-slate-700 p-5 md:p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-500 hover:-translate-y-1 group relative overflow-hidden">
-                        <div class="absolute top-0 right-0 w-20 h-20 bg-indigo-500/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-150"></div>
-                        <div class="flex justify-between items-start mb-4 relative z-10">
-                            <span class="bg-slate-700 text-slate-300 text-[10px] md:text-xs font-bold px-3 py-1 rounded-full group-hover:bg-indigo-600 group-hover:text-white transition-colors">Topic ${topic.id}</span>
-                            <span class="text-[10px] md:text-xs text-slate-400 flex items-center gap-1">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                                ${topic.questions ? topic.questions.length : 0} ข้อ
-                            </span>
-                        </div>
-                        <h3 class="font-bold text-base md:text-lg text-slate-100 group-hover:text-indigo-400 mb-2 line-clamp-2 relative z-10">${topic.title}</h3>
-                        <div class="flex items-center text-sm text-slate-500 mt-6 pt-4 border-t border-slate-700 group-hover:border-slate-600 relative z-10">
-                            <span class="group-hover:text-slate-300 transition-colors">เริ่มทำแบบฝึกหัด</span>
-                            <svg class="w-4 h-4 ml-auto text-indigo-500 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                        </div>
-                    </div>
-                `;
-            });
-            html += `</div>`;
-            app.innerHTML = html;
-        }
-
-        function renderPassage(id, restoreScroll = false) {
-            const topic = topics.find(t => t.id === id);
-            currentTopic = topic;
-            homeBtn.classList.remove('hidden');
-
-            if (!restoreScroll) {
-                window.scrollTo(0,0);
-            }
-
-            let contentHtml = '';
-            if(topic.content) {
-                topic.content.forEach(p => {
-                    const match = p.match(/^(\d+)\.?\s+(.*)/);
-                    if (match) {
-                        const interactiveText = makeTextInteractive(match[2]);
-                        contentHtml += `
-                            <div class="flex gap-3 mb-4 group">
-                                <span class="para-tag text-indigo-400 font-mono text-sm mt-1 opacity-70 group-hover:opacity-100 shrink-0">[${match[1]}]</span>
-                                <p class="text-slate-300 leading-7 md:leading-8 text-base md:text-lg">${interactiveText}</p>
-                            </div>`;
-                    } else if (p.startsWith('**')) {
-                        contentHtml += `<h3 class="text-lg md:text-xl font-bold text-white mt-8 mb-4 border-l-4 border-indigo-500 pl-4">${p.replace(/\*\*/g, '')}</h3>`;
-                    } else {
-                        const interactiveText = makeTextInteractive(p);
-                        contentHtml += `<p class="mb-4 text-slate-300 leading-7 md:leading-8 text-base md:text-lg">${interactiveText}</p>`;
-                    }
-                });
+    // --- 1. Animation Header ---
+    window.addEventListener('scroll', () => {
+        const header = document.getElementById('sticky-header');
+        if (header) {
+            if (window.scrollY > 10) {
+                header.classList.remove('py-4', 'scale-100', 'bg-indigo-900/95', 'border-l-4', 'rounded-l-md', 'rounded-r-xl');
+                header.classList.add('py-3', 'scale-[0.98]', 'bg-indigo-900/90', 'shadow-2xl', 'border-l-2', 'rounded-xl'); 
             } else {
-                contentHtml = "<p class='text-slate-400 animate-pulse'>Loading content...</p>";
+                header.classList.add('py-4', 'scale-100', 'bg-indigo-900/95', 'border-l-4', 'rounded-l-md', 'rounded-r-xl');
+                header.classList.remove('py-3', 'scale-[0.98]', 'bg-indigo-900/90', 'shadow-2xl', 'border-l-2', 'rounded-xl');
             }
+        }
+    });
 
-            app.innerHTML = `
-                <div class="fade-in max-w-4xl mx-auto pb-12">
-                    <div id="sticky-header" class="flex justify-between items-center mb-6 bg-indigo-900/95 p-4 rounded-r-xl rounded-l-md border-l-4 border-indigo-400 sticky top-20 z-30 shadow-xl backdrop-blur ring-1 ring-white/10 transition-all duration-300 ease-out origin-top">
-                        <div class="overflow-hidden mr-2">
-                            <p class="text-indigo-300 text-[10px] font-bold uppercase tracking-wider mb-1">Reading Passage</p>
-                            <h2 class="text-lg md:text-xl font-bold text-white truncate max-w-[200px] md:max-w-md">${topic.title}</h2>
-                        </div>
-                        <div class="shrink-0 flex items-center px-3 py-1.5 bg-indigo-800/50 rounded-lg border border-indigo-500/30 text-indigo-200 text-xs md:text-sm font-medium select-none">
-                            <svg class="w-4 h-4 mr-2 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
-                            <span class="hidden md:inline">แตะคำเพื่อแปล</span>
-                            <span class="md:hidden">แตะแปล</span>
-                        </div>
-                    </div>
+    // --- 2. Render หน้าแรก ---
+    function renderHome() {
+        currentTopic = null;
+        homeBtn.classList.add('hidden');
+        window.scrollTo(0,0);
 
-                    <div class="bg-slate-800 rounded-xl shadow-2xl overflow-hidden mb-10 border border-slate-700">
-                        <div class="p-6 md:p-8 english-text bg-slate-800 text-slate-300 relative">
-                            <div class="absolute top-2 right-2 text-slate-500 text-[10px] md:text-xs flex items-center gap-1 select-none pointer-events-none opacity-60">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                แตะที่ศัพท์เพื่อดูคำแปล
-                            </div>
-                            ${contentHtml}
-                        </div>
+        let html = `
+            <div class="text-center mb-8 md:mb-12 fade-in mt-4 px-4">
+                <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">คลังข้อสอบ GED RLA</h2>
+                <p class="text-slate-400 max-w-lg mx-auto text-sm md:text-base">เลือกหัวข้อบทความเพื่อเริ่มฝึกฝน (Study Mode)</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 fade-in pb-10">
+        `;
+
+        topics.forEach(topic => {
+            const totalQ = topic.questions ? topic.questions.length : 0;
+            const checkedCount = globalChecked[topic.id] ? Object.keys(globalChecked[topic.id]).length : 0;
+            const progressText = checkedCount > 0 ? `<span class="text-indigo-400">เรียนแล้ว ${checkedCount}/${totalQ}</span>` : `${totalQ} ข้อ`;
+
+            html += `
+                <div onclick="renderPassage(${topic.id})" class="bg-slate-800 rounded-xl border border-slate-700 p-5 md:p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-500 hover:-translate-y-1 group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-indigo-500/5 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-150"></div>
+                    <div class="flex justify-between items-start mb-4 relative z-10">
+                        <span class="bg-slate-700 text-slate-300 text-[10px] md:text-xs font-bold px-3 py-1 rounded-full group-hover:bg-indigo-600 group-hover:text-white transition-colors">Topic ${topic.id}</span>
+                        <span class="text-[10px] md:text-xs text-slate-400 flex items-center gap-1">
+                            ${progressText}
+                        </span>
                     </div>
-                    
-                    <div class="text-center sticky bottom-6 md:bottom-8 z-20 pointer-events-none px-4">
-                        <button onclick="passageScrollPos = window.scrollY; renderQuiz(${id}, true)" class="pointer-events-auto w-full md:w-auto bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-4 px-10 rounded-xl shadow-lg shadow-indigo-500/40 transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center mx-auto border border-indigo-400/20">
-                            <span class="text-base md:text-lg tracking-wide">เริ่มทำโจทย์ / กลับไปทำต่อ</span>
-                            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
-                        </button>
+                    <h3 class="font-bold text-base md:text-lg text-slate-100 group-hover:text-indigo-400 mb-2 line-clamp-2 relative z-10">${topic.title}</h3>
+                    <div class="flex items-center text-sm text-slate-500 mt-6 pt-4 border-t border-slate-700 group-hover:border-slate-600 relative z-10">
+                        <span class="group-hover:text-slate-300 transition-colors">เริ่มเรียน</span>
+                        <svg class="w-4 h-4 ml-auto text-indigo-500 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                     </div>
                 </div>
             `;
+        });
+        html += `</div>`;
+        app.innerHTML = html;
+    }
 
-            if (restoreScroll) {
-                setTimeout(() => {
-                    window.scrollTo({ top: passageScrollPos, behavior: 'auto' });
-                }, 10);
-            }
+    // --- 3. Render บทความ ---
+    function renderPassage(id, restoreScroll = false) {
+        const topic = topics.find(t => t.id === id);
+        currentTopic = topic;
+        homeBtn.classList.remove('hidden');
+
+        if (!restoreScroll) window.scrollTo(0,0);
+
+        let contentHtml = '';
+        if(topic.content) {
+            topic.content.forEach(p => {
+                if (p.startsWith('**')) {
+                    contentHtml += `<h3 class="text-lg md:text-xl font-bold text-white mt-8 mb-4 border-l-4 border-indigo-500 pl-4">${p.replace(/\*\*/g, '')}</h3>`;
+                } else {
+                    contentHtml += `<p class="mb-4 text-slate-300 leading-7 md:leading-8 text-base md:text-lg">${p}</p>`;
+                }
+            });
         }
 
-        function renderQuiz(id, restoreScroll = false) {
-            const topic = topics.find(t => t.id === id);
-            
-            if (!restoreScroll) {
-                window.scrollTo(0,0);
-            }
+        app.innerHTML = `
+            <div class="fade-in max-w-4xl mx-auto pb-12">
+                <div id="sticky-header" class="flex justify-between items-center mb-6 bg-indigo-900/95 p-4 rounded-r-xl rounded-l-md border-l-4 border-indigo-400 sticky top-20 z-30 shadow-xl backdrop-blur ring-1 ring-white/10 transition-all duration-300 ease-out origin-top">
+                    <div class="overflow-hidden mr-2">
+                        <p class="text-indigo-300 text-[10px] font-bold uppercase tracking-wider mb-1">Reading Passage</p>
+                        <h2 class="text-lg md:text-xl font-bold text-white truncate max-w-[200px] md:max-w-md">${topic.title}</h2>
+                    </div>
+                </div>
 
-            if (!globalAnswers[id]) globalAnswers[id] = {};
-            const savedAnswers = globalAnswers[id];
+                <div class="bg-slate-800 rounded-xl shadow-2xl overflow-hidden mb-10 border border-slate-700">
+                    <div class="p-6 md:p-8 english-text bg-slate-800 text-slate-300 relative">
+                        ${contentHtml}
+                    </div>
+                </div>
+                
+                <div class="text-center sticky bottom-6 md:bottom-8 z-20 pointer-events-none px-4">
+                    <button onclick="passageScrollPos = window.scrollY; renderQuiz(${id}, true)" class="pointer-events-auto w-full md:w-auto bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-4 px-10 rounded-xl shadow-lg shadow-indigo-500/40 transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center mx-auto border border-indigo-400/20">
+                        <span class="text-base md:text-lg tracking-wide">ไปทำโจทย์</span>
+                        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                    </button>
+                </div>
+            </div>
+        `;
 
-            let questionsHtml = '';
-            if(topic.questions) {
-                topic.questions.forEach((q, idx) => {
-                    let optionsHtml = '';
-                    
-                    let extraContent = '';
-                    if (q.type === 'ordering' && q.items) {
-                        extraContent = `
-                            <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-4 md:p-5 mb-5 relative overflow-hidden">
-                                <div class="absolute top-0 left-0 w-1 h-full bg-amber-600"></div>
-                                <p class="text-sm text-amber-200 font-bold mb-3 flex items-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
-                                    ลำดับเหตุการณ์:
-                                </p>
-                                <ul class="space-y-2">
-                                    ${q.items.map(item => `<li class="text-sm md:text-base text-slate-200 bg-slate-700/50 p-3 rounded border border-slate-600/50 shadow-sm flex gap-3"><span class="text-amber-500 shrink-0">•</span>${item}</li>`).join('')}
-                                </ul>
-                            </div>
-                        `;
+        if (restoreScroll) {
+            setTimeout(() => { window.scrollTo({ top: passageScrollPos, behavior: 'auto' }); }, 10);
+        }
+    }
+
+    // --- 4. ฟังก์ชันจัดการคำตอบ ---
+    function checkAnswer(qIdx) {
+        if (!globalAnswers[currentTopic.id] || globalAnswers[currentTopic.id][qIdx] === undefined) {
+            alert("กรุณาเลือกคำตอบก่อนกดเฉลยครับ");
+            return;
+        }
+        if (!globalChecked[currentTopic.id]) globalChecked[currentTopic.id] = {};
+        globalChecked[currentTopic.id][qIdx] = true;
+
+        quizScrollPos = window.scrollY;
+        renderQuiz(currentTopic.id, true);
+    }
+
+    // ฟังก์ชันใหม่: ล้างค่าเพื่อเริ่มทำใหม่
+    function resetTopic(id) {
+        if(confirm('คุณต้องการล้างคำตอบทั้งหมดและเริ่มทำใหม่ใช่ไหม?')) {
+            delete globalAnswers[id];
+            delete globalChecked[id];
+            quizScrollPos = 0;
+            renderQuiz(id);
+        }
+    }
+
+    // --- 5. Render หน้าโจทย์ (เพิ่มปุ่ม Reset) ---
+    function renderQuiz(id, restoreScroll = false) {
+        const topic = topics.find(t => t.id === id);
+        currentTopic = topic;
+        
+        if (!restoreScroll) window.scrollTo(0,0);
+
+        if (!globalAnswers[id]) globalAnswers[id] = {};
+        if (!globalChecked[id]) globalChecked[id] = {};
+        
+        const savedAnswers = globalAnswers[id];
+        const checkedQuestions = globalChecked[id];
+
+        let questionsHtml = '';
+        let score = 0;
+        let checkedCount = 0;
+
+        if(topic.questions) {
+            topic.questions.forEach((q, idx) => {
+                const userChoice = savedAnswers[idx];
+                const isChecked = checkedQuestions[idx]; 
+                const isCorrect = userChoice === q.correct;
+                
+                if (isChecked) {
+                    checkedCount++;
+                    if (isCorrect) score++;
+                }
+
+                // สร้างตัวเลือก (Options)
+                let optionsHtml = '';
+                q.options.forEach((opt, oIdx) => {
+                    const isSelected = userChoice === oIdx;
+                    let containerClass = 'bg-slate-800 border-slate-600 hover:bg-slate-700 hover:border-slate-500'; 
+                    let radioStatusClass = ''; 
+
+                    if (isChecked) {
+                        if (oIdx === q.correct) {
+                            containerClass = 'bg-emerald-900/40 border-emerald-500 ring-1 ring-emerald-500';
+                            radioStatusClass = 'status-correct'; 
+                        } else if (isSelected && !isCorrect) {
+                            containerClass = 'bg-rose-900/40 border-rose-500 ring-1 ring-rose-500'; 
+                            radioStatusClass = 'status-wrong'; 
+                        } else {
+                            containerClass = 'bg-slate-800/50 border-slate-700 opacity-50'; 
+                        }
+                    } else if (isSelected) {
+                        containerClass = 'bg-indigo-900/40 border-indigo-500 ring-1 ring-indigo-500'; 
                     }
 
-                    q.options.forEach((opt, oIdx) => {
-                        const isChecked = savedAnswers[idx] === oIdx ? 'checked' : '';
-                        const activeClass = isChecked ? 'bg-indigo-900/40 border-indigo-500 ring-1 ring-indigo-500' : 'bg-slate-800 border-slate-600 hover:bg-slate-700 hover:border-slate-500';
-                        
-                        const interactiveOpt = makeTextInteractive(opt);
+                    optionsHtml += `
+                        <label class="flex items-start p-4 border rounded-xl transition-all duration-200 mb-3 group ${containerClass} ${isChecked ? 'cursor-default' : 'cursor-pointer'}" id="lbl-${idx}-${oIdx}">
+                            <div class="flex items-center h-6 shrink-0">
+                                <input type="radio" name="q-${idx}" value="${oIdx}" 
+                                    class="custom-radio ${radioStatusClass}" 
+                                    onchange="updateSelection(${idx}, ${oIdx})" 
+                                    ${isSelected ? 'checked' : ''} 
+                                    ${isChecked ? 'disabled' : ''}>
+                            </div>
+                            <div class="ml-4 text-sm md:text-base">
+                                <span class="font-medium text-slate-300 group-hover:text-white transition-colors english-text">${opt}</span>
+                            </div>
+                        </label>
+                    `;
+                });
 
-                        optionsHtml += `
-                            <label class="flex items-start p-4 border rounded-xl cursor-pointer transition-all duration-200 mb-3 group ${activeClass}" id="lbl-${idx}-${oIdx}">
-                                <div class="flex items-center h-6 shrink-0">
-                                    <input type="radio" name="q-${idx}" value="${oIdx}" class="w-5 h-5 text-indigo-500 focus:ring-indigo-400 focus:ring-offset-slate-900 bg-slate-700 border-slate-500" onchange="updateSelection(${idx}, ${oIdx})" ${isChecked}>
-                                </div>
-                                <div class="ml-4 text-sm md:text-base">
-                                    <span class="font-medium text-slate-300 group-hover:text-white transition-colors english-text">${interactiveOpt}</span>
-                                </div>
-                            </label>
-                        `;
-                    });
+                // ส่วนแสดงผลเฉลย
+                let feedbackHtml = '';
+                let actionBtnHtml = '';
 
-                    const interactiveQ = makeTextInteractive(q.q);
-
-                    questionsHtml += `
-                        <div class="bg-slate-800 rounded-xl shadow-md border border-slate-700 p-5 md:p-6 mb-8 relative">
-                            <span class="absolute top-4 right-4 text-slate-600 text-6xl font-black opacity-10 select-none -z-0">${idx + 1}</span>
-                            <div class="relative z-10">
-                                <div class="flex items-center gap-3 mb-4">
-                                    <span class="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-500/30">Question ${idx + 1}</span>
+                if (isChecked) {
+                    feedbackHtml = `
+                        <div class="mt-5 pt-5 border-t border-slate-700 animate-fade-in">
+                            <div class="p-4 rounded-xl ${isCorrect ? 'bg-emerald-900/20 border border-emerald-500/30' : 'bg-rose-900/20 border border-rose-500/30'}">
+                                <div class="flex items-center flex-wrap gap-2 mb-2">
+                                    <span class="${isCorrect ? 'bg-emerald-600' : 'bg-rose-600'} text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                                        ${isCorrect ? 'Correct' : 'Incorrect'}
+                                    </span>
+                                    ${!isCorrect ? `<span class="text-xs text-rose-300 font-medium ml-1">คำตอบที่ถูกคือ: ข้อ ${q.correct + 1}</span>` : ''}
                                 </div>
-                                <h3 class="text-lg md:text-xl font-medium text-slate-100 mb-5 english-text leading-relaxed">${interactiveQ}</h3>
-                                
-                                ${extraContent} 
-                                <div class="space-y-1">
-                                    ${optionsHtml}
+                                <div class="explanation-box mt-3 relative !mt-0 !bg-transparent !p-0 !border-0">
+                                    <p class="text-slate-200 text-sm md:text-base leading-relaxed">${q.explanation || "ไม่มีคำอธิบายเพิ่มเติม"}</p>
                                 </div>
                             </div>
                         </div>
                     `;
-                });
-            }
-
-            app.innerHTML = `
-                <div class="fade-in max-w-3xl mx-auto pb-32">
-                    <div id="sticky-header" class="flex justify-between items-center mb-6 bg-indigo-900/95 p-4 rounded-r-xl rounded-l-md border-l-4 border-indigo-400 sticky top-20 z-40 shadow-2xl backdrop-blur ring-1 ring-white/10 transition-all duration-300 ease-out origin-top">
-                        <div class="overflow-hidden mr-2">
-                             <p class="text-indigo-300 text-[10px] font-bold uppercase tracking-wider mb-1">Current Topic</p>
-                             <h2 class="text-base md:text-xl font-bold text-white truncate max-w-[180px] md:max-w-md">${topic.title}</h2>
+                } else {
+                    actionBtnHtml = `
+                        <div class="mt-4 flex justify-end">
+                            <button type="button" onclick="checkAnswer(${idx})" class="text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-5 rounded-lg transition shadow-lg shadow-indigo-500/20 border border-indigo-400/20 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                เฉลยข้อนี้
+                            </button>
                         </div>
-                        
+                    `;
+                }
+
+                questionsHtml += `
+                    <div class="bg-slate-800 rounded-xl shadow-md border ${isChecked ? (isCorrect ? 'border-emerald-500/50' : 'border-rose-500/50') : 'border-slate-700'} p-5 md:p-6 mb-8 relative transition-colors duration-300">
+                        <span class="absolute top-4 right-4 text-slate-600 text-6xl font-black opacity-10 select-none -z-0">${idx + 1}</span>
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-3 mb-4">
+                                <span class="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-500/30">Question ${idx + 1}</span>
+                            </div>
+                            <h3 class="text-lg md:text-xl font-medium text-slate-100 mb-5 english-text leading-relaxed">${q.q}</h3>
+                            <div class="space-y-1">${optionsHtml}</div>
+                            ${feedbackHtml}
+                            ${actionBtnHtml}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // เช็คว่าทำครบทุกข้อหรือยัง
+        const isAllDone = checkedCount === topic.questions.length;
+        let resetBtnHtml = '';
+        
+        // ถ้าทำครบแล้ว ให้โชว์ปุ่มใหญ่ด้านล่าง
+        if (isAllDone) {
+            resetBtnHtml = `
+                <div class="text-center mt-12 mb-24 animate-fade-in border-t border-slate-700 pt-10">
+                    <p class="text-slate-400 mb-4">คุณทำครบทุกข้อแล้ว 🎉</p>
+                    <button onclick="resetTopic(${id})" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition flex items-center gap-2 mx-auto">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        ล้างคำตอบเพื่อเริ่มใหม่
+                    </button>
+                </div>
+            `;
+        }
+
+        app.innerHTML = `
+            <div class="fade-in max-w-3xl mx-auto pb-32">
+                <div id="sticky-header" class="flex justify-between items-center mb-6 bg-indigo-900/95 p-4 rounded-r-xl rounded-l-md border-l-4 border-indigo-400 sticky top-20 z-40 shadow-2xl backdrop-blur ring-1 ring-white/10 transition-all duration-300 ease-out origin-top">
+                    <div class="overflow-hidden mr-2">
+                         <p class="text-indigo-300 text-[10px] font-bold uppercase tracking-wider mb-1">Current Topic</p>
+                         <h2 class="text-base md:text-xl font-bold text-white truncate max-w-[180px] md:max-w-md">${topic.title}</h2>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="resetTopic(${id})" title="เริ่มใหม่" class="text-slate-300 hover:text-white p-2 bg-slate-800/50 rounded-lg border border-slate-600/50">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        </button>
                         <button onclick="quizScrollPos = window.scrollY; renderPassage(${id}, true)" class="shrink-0 text-white hover:text-indigo-200 font-medium text-xs md:text-sm flex items-center px-3 py-2 bg-indigo-800/50 rounded-lg hover:bg-indigo-700 transition-colors border border-indigo-500/30">
                             <svg class="w-4 h-4 mr-1 md:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                             <span class="hidden md:inline">กลับไป</span>ดูบทความ
                         </button>
                     </div>
+                </div>
 
-                    <form onsubmit="event.preventDefault(); submitQuiz();">
-                        ${questionsHtml}
-                        
-                        <div id="submit-section" class="mt-12 mb-24 text-center border-t border-slate-700 pt-8">
-                            <p class="text-slate-400 text-sm mb-4">มั่นใจแล้วกดส่งได้เลย!</p>
-                            <button type="submit" class="w-full md:w-auto px-12 py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold text-lg shadow-lg shadow-green-900/50 transition transform active:scale-95 flex items-center justify-center gap-2 mx-auto">
-                                <span>ส่งคำตอบ & ดูเฉลย</span>
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </button>
+                <div>${questionsHtml}</div>
+                ${resetBtnHtml}
+                
+                <div id="floating-back-btn" class="text-center sticky bottom-6 md:bottom-8 z-20 px-4 transition-all duration-300 ease-in-out transform">
+                     <div class="bg-slate-800/90 backdrop-blur-md border border-slate-600 p-4 rounded-2xl shadow-2xl flex items-center justify-between max-w-md mx-auto">
+                        <div class="text-left">
+                            <p class="text-xs text-slate-400 uppercase font-bold">ความคืบหน้า</p>
+                            <p class="text-white font-bold"><span class="text-emerald-400">${score}</span> / ${topic.questions.length} คะแนน (เรียนแล้ว ${checkedCount} ข้อ)</p>
                         </div>
-                    </form>
-                    
-                    <div id="floating-back-btn" class="text-center sticky bottom-6 md:bottom-8 z-20 pointer-events-none px-4 transition-all duration-300 ease-in-out transform">
-                        <button onclick="quizScrollPos = window.scrollY; renderPassage(${id}, true)" class="pointer-events-auto w-full md:w-auto bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-4 px-10 rounded-xl shadow-lg shadow-indigo-500/40 transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center mx-auto border border-indigo-400/20">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path></svg>
-                            <span class="text-base md:text-lg tracking-wide">กลับไปดูบทความ</span>
+                        <button onclick="quizScrollPos = window.scrollY; renderPassage(${id}, true)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-2 px-4 rounded-lg shadow-lg transition">
+                            ดูบทความ
                         </button>
                     </div>
                 </div>
-            `;
-            
-            // Logic ซ่อนปุ่มเมื่อเจอปุ่มส่ง
-            setTimeout(() => {
-                const submitSection = document.getElementById('submit-section');
-                const floatingBtn = document.getElementById('floating-back-btn');
+            </div>
+        `;
 
-                if(submitSection && floatingBtn) {
-                    const observer = new IntersectionObserver((entries) => {
-                        entries.forEach(entry => {
-                            if (entry.isIntersecting) {
-                                floatingBtn.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
-                            } else {
-                                floatingBtn.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
-                            }
-                        });
-                    }, { threshold: 0.1 }); 
-
-                    observer.observe(submitSection);
-                }
-            }, 50);
-
-            if (restoreScroll) {
-                setTimeout(() => {
-                    window.scrollTo({ top: quizScrollPos, behavior: 'auto' });
-                }, 10);
-            }
+        if (restoreScroll) {
+            setTimeout(() => { window.scrollTo({ top: quizScrollPos, behavior: 'auto' }); }, 10);
         }
+    }
 
-        function updateSelection(qIdx, oIdx) {
-            saveAnswer(qIdx, oIdx);
-            const labels = document.querySelectorAll(`label[id^="lbl-${qIdx}-"]`);
-            labels.forEach(lbl => {
+    function updateSelection(qIdx, oIdx) {
+        saveAnswer(qIdx, oIdx);
+        
+        const labels = document.querySelectorAll(`label[id^="lbl-${qIdx}-"]`);
+        labels.forEach(lbl => {
+            if(!lbl.classList.contains('cursor-default')) {
                 lbl.className = 'flex items-start p-4 border rounded-xl cursor-pointer transition-all duration-200 mb-3 group bg-slate-800 border-slate-600 hover:bg-slate-700 hover:border-slate-500';
-            });
-            const activeLbl = document.getElementById(`lbl-${qIdx}-${oIdx}`);
-            if(activeLbl) {
-                activeLbl.className = 'flex items-start p-4 border rounded-xl cursor-pointer transition-all duration-200 mb-3 group bg-indigo-900/40 border-indigo-500 ring-1 ring-indigo-500';
             }
+        });
+
+        const activeLbl = document.getElementById(`lbl-${qIdx}-${oIdx}`);
+        if(activeLbl && !activeLbl.classList.contains('cursor-default')) {
+            activeLbl.className = 'flex items-start p-4 border rounded-xl cursor-pointer transition-all duration-200 mb-3 group bg-indigo-900/40 border-indigo-500 ring-1 ring-indigo-500';
         }
+    }
 
-        function saveAnswer(qIdx, oIdx) {
-            if (currentTopic) {
-                if (!globalAnswers[currentTopic.id]) globalAnswers[currentTopic.id] = {};
-                globalAnswers[currentTopic.id][qIdx] = oIdx;
-            }
+    function saveAnswer(qIdx, oIdx) {
+        if (currentTopic) {
+            if (!globalAnswers[currentTopic.id]) globalAnswers[currentTopic.id] = {};
+            globalAnswers[currentTopic.id][qIdx] = oIdx;
         }
+    }
 
-        function retryQuiz(id) {
-            if (globalAnswers[id]) delete globalAnswers[id];
-            quizScrollPos = 0; 
-            renderQuiz(id);
-        }
-
-        function submitQuiz() {
-            if (!currentTopic) return;
-            
-            const savedAnswers = globalAnswers[currentTopic.id] || {};
-            let score = 0;
-            const total = currentTopic.questions.length;
-            let resultsHtml = '';
-
-            currentTopic.questions.forEach((q, idx) => {
-                const userChoice = savedAnswers[idx];
-                const isCorrect = userChoice === q.correct;
-                if (isCorrect) score++;
-
-                const userText = userChoice !== undefined ? q.options[userChoice] : '<span class="text-rose-400 italic">ไม่ได้ตอบ</span>';
-                const correctText = q.options[q.correct];
-                const explanationText = q.explanation || "ไม่มีคำอธิบายเพิ่มเติม";
-
-                resultsHtml += `
-                    <div class="p-4 md:p-5 mb-6 rounded-xl border ${isCorrect ? 'bg-emerald-900/10 border-emerald-500/50' : 'bg-rose-900/10 border-rose-500/50'}">
-                        <div class="flex items-center gap-2 mb-3">
-                            <span class="${isCorrect ? 'bg-emerald-600' : 'bg-rose-600'} text-white text-[10px] md:text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider">${isCorrect ? 'Correct' : 'Incorrect'}</span>
-                            <span class="text-slate-400 text-xs md:text-sm font-mono">Question ${idx + 1}</span>
-                        </div>
-                        
-                        <p class="text-slate-100 mb-4 english-text font-medium text-base md:text-lg leading-relaxed">${q.q}</p>
-                        
-                        <div class="text-sm space-y-3">
-                            <div class="p-3 rounded-lg ${isCorrect ? 'bg-emerald-900/20' : 'bg-rose-900/20'} border ${isCorrect ? 'border-emerald-800' : 'border-rose-800'}">
-                                <p class="text-slate-400 text-xs mb-1 uppercase">คำตอบของคุณ:</p>
-                                <p class="${isCorrect ? 'text-emerald-400' : 'text-rose-400'} font-bold text-sm md:text-base flex items-center gap-2">
-                                    ${userText} 
-                                    ${isCorrect ? '<svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' : '<svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>'}
-                                </p>
-                            </div>
-
-                            ${!isCorrect ? `
-                                <div class="p-3 rounded-lg bg-emerald-900/20 border border-emerald-800">
-                                    <p class="text-slate-400 text-xs mb-1 uppercase">คำตอบที่ถูก:</p>
-                                    <p class="text-emerald-400 font-bold text-sm md:text-base">${correctText}</p>
-                                </div>` : ''}
-                            
-                            <div class="explanation-box mt-4 relative">
-                                <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500 rounded-l"></div>
-                                <h4 class="font-bold text-emerald-300 mb-1 flex items-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    คำอธิบาย
-                                </h4>
-                                <p class="text-emerald-100/90 leading-relaxed text-sm md:text-base">${explanationText}</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            app.innerHTML = `
-                <div class="fade-in max-w-3xl mx-auto pb-24">
-                    <div class="bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 text-center mb-10 border border-slate-700 relative overflow-hidden">
-                        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 via-yellow-500 to-emerald-500"></div>
-                        
-                        <p class="text-slate-400 uppercase tracking-widest text-xs font-bold mb-4">ผลการทดสอบของคุณ</p>
-                        
-                        <div class="flex items-center justify-center gap-2 mb-6">
-                            <h2 class="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400">${score}</h2>
-                            <div class="text-left">
-                                <span class="block text-xl md:text-2xl text-slate-500 font-bold">/ ${total}</span>
-                                <span class="block text-xs md:text-sm text-slate-500">คะแนน</span>
-                            </div>
-                        </div>
-
-                        <div class="w-full bg-slate-700 h-3 rounded-full overflow-hidden mb-8 max-w-md mx-auto">
-                            <div class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-1000" style="width: ${(score/total)*100}%"></div>
-                        </div>
-
-                        <div class="flex flex-col md:flex-row justify-center gap-4">
-                            <button onclick="retryQuiz(${currentTopic.id})" class="w-full md:w-auto px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-200 font-medium transition flex items-center justify-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                                ทำอีกครั้ง
-                            </button>
-                            <button onclick="renderHome()" class="w-full md:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-medium transition shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                                กลับหน้าแรก
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-6 md:p-8">
-                        <h3 class="font-bold text-lg md:text-xl text-white mb-6 border-b border-slate-700 pb-4 flex items-center gap-2">
-                            <span class="text-indigo-400">📝</span> เฉลยละเอียด
-                        </h3>
-                        ${resultsHtml}
-                    </div>
-                </div>
-            `;
-            window.scrollTo(0,0);
-        }
-
-        renderHome();
-    </script>
+    renderHome();
+</script>
 </body>
 </html>
