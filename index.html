@@ -1907,7 +1907,7 @@
         ];
 
 // ==========================================
-    //  APP LOGIC (Study Mode + Reset System)
+    //  APP LOGIC (กู้คืน Drag & Drop Display + Study Mode)
     // ==========================================
 
     let currentTopic = null;
@@ -1947,6 +1947,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 fade-in pb-10">
         `;
 
+        // *ถ้าต้องการแบ่ง Topic ตาม PDF ที่คุณบอก (ชุด 1: 1-9, ชุด 2: 10-18) เราค่อยมาแก้ตรงนี้ได้ครับ*
+        // ตอนนี้โชว์รวมไปก่อน
         topics.forEach(topic => {
             const totalQ = topic.questions ? topic.questions.length : 0;
             const checkedCount = globalChecked[topic.id] ? Object.keys(globalChecked[topic.id]).length : 0;
@@ -1975,6 +1977,7 @@
 
     // --- 3. Render บทความ ---
     function renderPassage(id, restoreScroll = false) {
+        // (ใช้ Logic เดิม ไม่เปลี่ยนแปลง)
         const topic = topics.find(t => t.id === id);
         currentTopic = topic;
         homeBtn.classList.remove('hidden');
@@ -2034,7 +2037,6 @@
         renderQuiz(currentTopic.id, true);
     }
 
-    // ฟังก์ชันใหม่: ล้างค่าเพื่อเริ่มทำใหม่
     function resetTopic(id) {
         if(confirm('คุณต้องการล้างคำตอบทั้งหมดและเริ่มทำใหม่ใช่ไหม?')) {
             delete globalAnswers[id];
@@ -2044,7 +2046,7 @@
         }
     }
 
-    // --- 5. Render หน้าโจทย์ (เพิ่มปุ่ม Reset) ---
+    // --- 5. Render หน้าโจทย์ (แก้เพิ่ม: ส่วนแสดง Drag & Drop Items) ---
     function renderQuiz(id, restoreScroll = false) {
         const topic = topics.find(t => t.id === id);
         currentTopic = topic;
@@ -2071,6 +2073,30 @@
                     checkedCount++;
                     if (isCorrect) score++;
                 }
+
+                // ==========================================
+                //  [ส่วนที่เพิ่มใหม่] เช็คว่าเป็นข้อเรียงลำดับหรือไม่?
+                // ==========================================
+                let orderingHtml = '';
+                if (q.type === 'ordering' && q.items) {
+                    orderingHtml = `
+                        <div class="mb-5 p-4 bg-slate-900/50 rounded-lg border border-slate-600 shadow-inner">
+                            <p class="text-xs text-indigo-300 font-bold mb-3 uppercase tracking-wider flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                รายการเหตุการณ์ (Drag & Drop)
+                            </p>
+                            <ul class="space-y-2">
+                    `;
+                    q.items.forEach(item => {
+                        orderingHtml += `
+                            <li class="flex items-start gap-3 text-slate-300 text-sm md:text-base p-3 bg-slate-800 rounded border border-slate-700 shadow-sm">
+                                ${item}
+                            </li>
+                        `;
+                    });
+                    orderingHtml += `</ul></div>`;
+                }
+                // ==========================================
 
                 // สร้างตัวเลือก (Options)
                 let optionsHtml = '';
@@ -2148,6 +2174,9 @@
                                 <span class="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-indigo-500/30">Question ${idx + 1}</span>
                             </div>
                             <h3 class="text-lg md:text-xl font-medium text-slate-100 mb-5 english-text leading-relaxed">${q.q}</h3>
+                            
+                            ${orderingHtml}
+                            
                             <div class="space-y-1">${optionsHtml}</div>
                             ${feedbackHtml}
                             ${actionBtnHtml}
@@ -2157,11 +2186,9 @@
             });
         }
 
-        // เช็คว่าทำครบทุกข้อหรือยัง
         const isAllDone = checkedCount === topic.questions.length;
         let resetBtnHtml = '';
         
-        // ถ้าทำครบแล้ว ให้โชว์ปุ่มใหญ่ด้านล่าง
         if (isAllDone) {
             resetBtnHtml = `
                 <div class="text-center mt-12 mb-24 animate-fade-in border-t border-slate-700 pt-10">
